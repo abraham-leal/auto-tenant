@@ -1,0 +1,14 @@
+serrala-cap-web
+nuxeo-pubsub
+nuxeo-permissionsPurge
+nuxeo-fulltextUpdater
+nuxeo-escalation
+nuxeo-elasticSearchIndexing
+nuxeo-dlq-work
+nuxeo-default
+nuxeo-collections
+nuxeo-bulk-status
+nuxeo-bulk-done
+nuxeo-bulk-command
+nuxeo-blobs
+nuxeo-audit

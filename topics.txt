@@ -1,4 +1,3 @@
-serrala-cap-web
 nuxeo-pubsub
 nuxeo-permissionsPurge
 nuxeo-fulltextUpdater

@@ -1,29 +1,12 @@
 #!/bin/bash
+# author: jkuhnash@confluent.io @ github.com/jeremykuhnash
 set -e
 
-# This is an example of creating a "kafka context" with the Confluent Cloud CLI 
+# This is an example of creating a "kafka tenant context" with the Confluent Cloud CLI 
 # available here - https://docs.confluent.io/current/cloud/cli/install.html
 # This script will create topics that are fully accessible via the created service-user
 # but protected from access by any other user excluding superusers.
 #
-
-DEBUG=1
-debug () {
-    if [ ! -z "$DEBUG" ] ; then
-        echo "debug: $@"
-    fi
-}
-
-if [ "$#" -ne 4 ]; then
-    echo "Illegal number of parameters."
-echo "Usage: 
-    create_tenant.sh <tenant> <app-name> <environment> <topics-list-file-relative>
-    
-Example: 
-    create_tenant.sh serrala nuxio dev topics.txt
-"
-    exit 1
-fi
 
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -32,72 +15,78 @@ while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symli
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
 done
 THIS_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-
-TENANT=$1
-APP_NAME=$2
-APP_ENVIRONMENT=$3
-TOPICS_LIST_FILE=$THIS_DIR/$4
-
-debug $TENANT $APP_NAME $APP_ENVIRONMENT $TOPICS_LIST_FILE
-
-if [ ! -e $TOPICS_LIST_FILE ] ; then
-    echo "Couldn't find $TOPICS_LIST_FILE. Exiting."
-    exit 1
-fi
-
-source ./settings.sh
-
-echo "from settings*.sh -  
-    CCLOUD_ENVIRONMENT: $CCLOUD_ENVIRONMENT
-    CCLOUD_CLUSTER_ID: $CCLOUD_CLUSTER_ID"
-
-ccloud environment use $CCLOUD_ENVIRONMENT
-ccloud kafka cluster describe $CCLOUD_CLUSTER_ID
-ccloud kafka cluster use $CCLOUD_CLUSTER_ID
+source $THIS_DIR/common.sh
 
 ##############################
 ## SERVICE ACCOUNTS
-SERVICE_ACCOUNT="sa-$TENANT-$APP_NAME-$APP_ENVIRONMENT"
-debug "Service Account: $SERVICE_ACCOUNT"
-if [ ! -z "$DEBUG" ] ; then
-    SERVICE_ACCOUNT_ID=$(ccloud service-account list | grep sa-serrala-nuxio-dev | awk '{print $1}')
-    echo "debug mode: Deleting service-account if it exists: $SERVICE_ACCOUNT with ID of $SERVICE_ACCOUNT_ID"
-    ccloud service-account delete $SERVICE_ACCOUNT_ID > /dev/null 2>&1 || true
-fi
+# Similar tp conventions discussed here - https://riccomini.name/how-paint-bike-shed-kafka-topic-naming-conventions
+SERVICE_ACCOUNT=$(generate_service-user_name)
 echo "Creating service-account: $SERVICE_ACCOUNT"
-ccloud service-account create $SERVICE_ACCOUNT --description "Automated service account for $APP_NAME @ $APP_ENVIRONMENT" 
-SERVICE_ACCOUNT_ID=$(ccloud service-account list | grep sa-serrala-nuxio-dev | awk '{print $1}')
-debug "Service Account ID: $SERVICE_ACCOUNT_ID"
+SERVICE_ACCOUNT_CREATE_COMMAND="ccloud service-account create $SERVICE_ACCOUNT --description 'Automated service account for $APP_NAME $APP_ENVIRONMENT'"
+debug "SERVICE_ACCOUNT_CREATE_COMMAND: $SERVICE_ACCOUNT_CREATE_COMMAND"
+eval "$SERVICE_ACCOUNT_CREATE_COMMAND"
+SERVICE_ACCOUNT_ID=$(ccloud service-account list | grep $SERVICE_ACCOUNT | awk '{print $1}' | awk '{$1=$1;print}')
+debug "SERVICE_ACCOUNT_ID: $SERVICE_ACCOUNT_ID"
 
 ###############################
 ## API KEY
-API_KEY=$(ccloud api-key list --service-account $SERVICE_ACCOUNT_ID | head -n 4 | tail -1 | awk '{print $1}')
+API_KEY=$(ccloud api-key list --service-account $SERVICE_ACCOUNT_ID | tail -n +3 | awk '{print $1}' | awk '{$1=$1;print}')
 debug $API_KEY
 if [ ! -z "$DEBUG" ] ; then
-    echo "debug mode: Deleting api-key if it exists..."
-    # assuming single API key for this example script.... may blow up with multiple.
-    ccloud api-key delete $API_KEY > /dev/null 2>&1 || true
+    debug "API_KEY, line: $API_KEY"
+    if [ ! -z "$API_KEY"  ]; then
+        API_KEY_DELETE_COMMAND="ccloud api-key delete $API_KEY"
+        debug $API_KEY_DELETE_COMMAND 
+        eval "$API_KEY_DELETE_COMMAND" || true
+    fi
 fi
 echo "Creating API key..."
-ccloud api-key create --service-account "$SERVICE_ACCOUNT_ID" --description "Automated API KEY for $APP_NAME @ $APP_ENVIRONMENT" --resource $CCLOUD_CLUSTER_ID
+API_KEY_CREATE_COMMAND="ccloud api-key create --service-account \"$SERVICE_ACCOUNT_ID\" --description \"Automated API KEY for $APP_NAME @ $APP_ENVIRONMENT\" --resource $CCLOUD_CLUSTER_ID"
+debug "API_KEY_CREATE_COMMAND: $API_KEY_CREATE_COMMAND"
+KEY_INFO=$(eval "$API_KEY_CREATE_COMMAND")
+debug "KEY_INFO: $KEY_INFO"
+API_KEY=$(echo $KEY_INFO | cut -f 3 -d "|" | awk '{$1=$1;print}')
+debug "API_KEY: $API_KEY"
+API_SECRET=$(echo $KEY_INFO | cut -f 6 -d "|" | awk '{$1=$1;print}')
+debug "API_SECRET: $API_SECRET"
+cat << EOF > $API_KEY_LOCATION
+API_KEY="${API_KEY}"
+API_SECRET="${API_SECRET}"
+EOF
 
+###############################
+## Topics
 # pull the topics file into an array named TENANT_TOPICS_LIST
-IFS=$'\r\n' GLOBIGNORE='*' command eval  'TENANT_TOPICS_LIST=($(cat $TOPICS_LIST_FILE))'
+IFS=$'\r\n' GLOBIGNORE='*' command eval 'TENANT_TOPICS_LIST=($(cat $TOPICS_LIST_FILE))'
+debug "Topics found in $TOPICS_LIST_FILE - "
 for topic in "${TENANT_TOPICS_LIST[@]}"
 do
-    debug $topic
+    debug "   Found: $topic"
 done
 
 for topic in "${TENANT_TOPICS_LIST[@]}"
 do
+    TOPIC_NAME=$(generate_topic_name $topic)
+    debug "TOPIC_NAME: $TOPIC_NAME"
+    sleep $DELAY_TIME
+    # if [ ! -z "$DEBUG" ] ; then
+    #     debug "Deleting $TOPIC_NAME if it exists..."
+    #     TOPIC_DELETE_COMMAND="ccloud kafka topic delete $TOPIC_NAME > /dev/null 2>&1 || true"
+    #     debug $TOPIC_DELETE_COMMAND
+    #     eval "$TOPIC_DELETE_COMMAND"
+    # fi
 # https://docs.confluent.io/current/cloud/cli/command-reference/ccloud_kafka_topic_create.html
 #     --cluster string      Kafka cluster ID.
 #     --partitions uint32   Number of topic partitions. (default 6)
 #     --config strings      A comma-separated list of topics. Configuration ('key=value') overrides for the topic being created.
 #     --dry-run             Run the command without committing changes to Kafka.
 # -h, --help                help for create
-    echo "Creating topic: $topic.."
-    ccloud kafka topic create $topic --cluster $CCLOUD_CLUSTER_ID
+    echo "Letting cluster settle down for $DELAY_TIME seconds..."
+    sleep $DELAY_TIME
+    TOPIC_CREATE_COMMAND="ccloud kafka topic create $TOPIC_NAME"
+    debug "$TOPIC_CREATE_COMMAND"
+    eval "$TOPIC_CREATE_COMMAND"
+    echo "Letting cluster settle down for $DELAY_TIME seconds..."
 
 #https://docs.confluent.io/current/cloud/cli/command-reference/ccloud_kafka_acl_create.html
 #     --allow                     Set the ACL to grant access.
@@ -113,56 +102,17 @@ do
 #                                 the --prefix option was also passed.
 #     --transactional-id string   Set the TransactionalID resource.
 # -h, --help                      help for create    
-    echo "Assigning full control ACLs for $SERVICE_ACCOUNT on $topic"
-    ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --topic $topic
-    ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation WRITE --topic $topic
+    # echo "Assigning full control ACLs for $SERVICE_ACCOUNT on $topic"
+    CREATE_ACL_READ_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --topic $TOPIC_NAME"
+    debug $ACL_READ_COMMAND
+    eval $CREATE_ACL_READ_COMMAND
+    CREATE_ACL_WRITE_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation WRITE --topic $TOPIC_NAME"
+    debug $CREATE_ACL_WRITE_COMMAND
+    eval $CREATE_ACL_WRITE_COMMAND
 done
 
+echo "Final view:"
+ccloud service-account list 
+ccloud kafka topic list
+ccloud kafka acl list
 
-
-# echo "Step 1 (again)"
-# echo "-----------------"
-# #kafka-console-producer
-
-# echo "Step 2-7 Writing to Topics with producer by using a file as input via < my_data.txt"
-# echo "-----------------"
-# kafka-console-producer --broker-list $CCLOUD_BOOTSTRAP_SERVER --topic testing < my_data.txt
-
-# echo "Press Enter to Continue"
-# read just_enter
-
-# echo "Step 8-9 Consuming from Topics with consumer"
-# kafka-console-consumer \
-#  --bootstrap-server $CCLOUD_BOOTSTRAP_SERVER \
-#  --from-beginning \
-#  --topic testing &
-
-# echo "Press Enter to Continue"
-# read just_enter
-
-# echo "Killing consumer..."
-# kill $!
-
-# echo "OPTIONAL: Working with record keys - use automatic keys to create messages"
-# kafka-console-producer \
-#  --broker-list $CCLOUD_BOOTSTRAP_SERVER \
-#  --topic testing \
-#  --property parse.key=true \
-#  --property key.separator=, < my_data_keyed.txt
-
-# echo "Press Enter to Continue"
-# read just_enter
-
-# echo "Retrieving keyed records with consumer:"
-# kafka-console-consumer \
-#  --bootstrap-server $CCLOUD_BOOTSTRAP_SERVER \
-#  --from-beginning \
-#  --topic testing \
-#  --property print.key=true &
-
-# echo "Press Enter to Continue"
-# read just_enter
-# echo "Killing consumer..."
-# kill $!
-
-#  echo "Done with lab 2"

@@ -10,7 +10,7 @@ export CCLOUD_ENVIRONMENT="t34375"
 export CCLOUD_CLUSTER_ID="lkc-1j3qj"
 
 # delay time in seconds to sleep between commands on the Kafka cluster. 
-# Note: Admin commands @ cloud API to not need to sleep. 
+# Note: Admin commands @ cloud API do not need to sleep. 
 export DELAY_TIME=10
 
 # Not used, yet, but should go into the settings-private.sh

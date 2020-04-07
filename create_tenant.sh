@@ -19,7 +19,7 @@ source $THIS_DIR/common.sh
 
 ##############################
 ## SERVICE ACCOUNTS
-# Similar tp conventions discussed here - https://riccomini.name/how-paint-bike-shed-kafka-topic-naming-conventions
+# Similar topic naming conventions discussed here - https://riccomini.name/how-paint-bike-shed-kafka-topic-naming-conventions
 SERVICE_ACCOUNT=$(generate_service-user_name)
 echo "Creating service-account: $SERVICE_ACCOUNT"
 SERVICE_ACCOUNT_CREATE_COMMAND="ccloud service-account create $SERVICE_ACCOUNT --description 'Automated service account for $APP_NAME $APP_ENVIRONMENT'"

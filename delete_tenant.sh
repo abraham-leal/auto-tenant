@@ -78,4 +78,4 @@ do
 done
 
 echo "Check: "
-echo $(ccloud service-account list | tail -n +3| grep $SERVICE_ACCOUNT_PREFIX)
+echo $(ccloud service-account list | tail -n +3 | grep $SERVICE_ACCOUNT_PREFIX)

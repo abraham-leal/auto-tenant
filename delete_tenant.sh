@@ -77,5 +77,22 @@ do
     # sleep $DELAY_TIME
 done
 
+# Clean related API-KEY/SECRET pairs
+echo "Deleting API Pairs associated with tenant"
+CANDIDATE_KEYS_IN=$(ccloud api-key list --service-account $ACL_SERVICE_ACCOUNT_ID | tail -n +3 )
+while IFS= read -r apikey; do
+    debug "api-key: $apikey"
+    KEY_PAIR=$(echo $apikey | cut -d "|" -f 1 | awk '{$1=$1;print}')
+    RESOURCE=$(echo $apikey | cut -d "|" -f 5 | awk '{$1=$1;print}')
+    debug "KEY_PAIR: $KEY_PAIR"
+    debug "RESOURCE: $RESOURCE"
+    if [[ $RESOURCE == $CCLOUD_CLUSTER_ID ]]; then 
+        KEY_DELETE_COMMAND="ccloud api-key delete $KEY_PAIR"
+        debug $KEY_DELETE_COMMAND
+        eval "$KEY_DELETE_COMMAND"
+    fi
+done <<< "$CANDIDATE_KEYS_IN"
+
+
 echo "Check: "
 echo $(ccloud service-account list | tail -n +3 | grep $SERVICE_ACCOUNT_PREFIX)

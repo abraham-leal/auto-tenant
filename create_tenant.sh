@@ -106,6 +106,9 @@ do
     CREATE_ACL_READ_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --topic $TOPIC_NAME"
     debug $ACL_READ_COMMAND
     eval $CREATE_ACL_READ_COMMAND
+    CREATE_ACL_READ_CG_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --consumer-group $TOPIC_NAME"
+    debug $CREATE_ACL_READ_CG_COMMAND
+    eval $CREATE_ACL_READ_CG_COMMAND
     CREATE_ACL_WRITE_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation WRITE --topic $TOPIC_NAME"
     debug $CREATE_ACL_WRITE_COMMAND
     eval $CREATE_ACL_WRITE_COMMAND

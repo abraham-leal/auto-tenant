@@ -57,16 +57,27 @@ EOF
 ###############################
 ## Topics
 # pull the topics file into an array named TENANT_TOPICS_LIST
-IFS=$'\r\n' GLOBIGNORE='*' command eval 'TENANT_TOPICS_LIST=($(cat $TOPICS_LIST_FILE))'
-debug "Topics found in $TOPICS_LIST_FILE - "
-for topic in "${TENANT_TOPICS_LIST[@]}"
+
+declare -A TopicPartitions
+
+while IFS== read -r key value; do
+    TopicPartitions[$key]=$value
+done <<< "$(cat $TOPICS_LIST_FILE)"
+
+echo "Topics found in topics.txt - If no partitions are declared, the default of 6 is applied"
+for key in "${!TopicPartitions[@]}"
 do
-    debug "   Found: $topic"
+    if [ -z ${TopicPartitions[$key]}]
+    then
+       TopicPartitions[$key]="6"
+    fi 
+    echo "Topic  : $key"
+    echo "Partitions: ${TopicPartitions[$key]}"
 done
 
-for topic in "${TENANT_TOPICS_LIST[@]}"
+for key in "${!TopicPartitions[@]}"
 do
-    TOPIC_NAME=$(generate_topic_name $topic)
+    TOPIC_NAME=$(generate_topic_name $key)
     debug "TOPIC_NAME: $TOPIC_NAME"
     sleep $DELAY_TIME
     # if [ ! -z "$DEBUG" ] ; then
@@ -83,7 +94,7 @@ do
 # -h, --help                help for create
     echo "Letting cluster settle down for $DELAY_TIME seconds..."
     sleep $DELAY_TIME
-    TOPIC_CREATE_COMMAND="ccloud kafka topic create $TOPIC_NAME"
+    TOPIC_CREATE_COMMAND="ccloud kafka topic create $TOPIC_NAME  --partitions ${TopicPartitions[$key]}"
     debug "$TOPIC_CREATE_COMMAND"
     eval "$TOPIC_CREATE_COMMAND"
     echo "Letting cluster settle down for $DELAY_TIME seconds..."

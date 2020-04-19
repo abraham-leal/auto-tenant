@@ -61,16 +61,22 @@ while IFS= read -r user; do
 done <<< "$CANDIDATE_USERS_IN"
 
 # Clean topics
-IFS=$'\r\n' GLOBIGNORE='*' command eval 'TENANT_TOPICS_LIST=($(cat $TOPICS_LIST_FILE))'
+
+declare -A TopicPartitions
+
+while IFS== read -r key value; do
+    TopicPartitions[$key]=$value
+done <<< "$(cat $TOPICS_LIST_FILE)"
+
 debug "Topics found in $TOPICS_LIST_FILE - "
-for topic in "${TENANT_TOPICS_LIST[@]}"
+for key in "${!TopicPartitions[@]}"
 do
-    debug "   Found: $topic"
+    debug "   Found: $key"
 done
 
-for topic in "${TENANT_TOPICS_LIST[@]}"
+for key in "${!TopicPartitions[@]}"
 do
-    TOPIC_TO_DELETE=$(generate_topic_name $topic)
+    TOPIC_TO_DELETE=$(generate_topic_name $key)
     echo "Deleting Topic $TOPIC_TO_DELETE..."
     ccloud kafka topic delete $TOPIC_TO_DELETE || true
     echo "Letting the cluster catch up...."

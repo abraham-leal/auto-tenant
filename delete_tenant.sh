@@ -35,8 +35,11 @@ if [ ! -z "$ACL_LIST" ]; then
             fi
             #ccloud kafka acl create --allow --service-account $ACL_SERVICE_ACCOUNT_ID --operation READ --topic $topic
             DELETE_COMMAND="ccloud kafka acl delete $ACL_TYPE --operation $ACL_OPERATION --service-account $ACL_SERVICE_ACCOUNT_ID --topic $TOPIC_NAME"
+            DELETE_COMMAND_GROUP="ccloud kafka acl delete $ACL_TYPE --operation $ACL_OPERATION --service-account $ACL_SERVICE_ACCOUNT_ID --consumer-group $TOPIC_NAME"
             debug "$DELETE_COMMAND"
             eval "$DELETE_COMMAND"
+            debug "$DELETE_COMMAND_GROUP"
+            eval "$DELETE_COMMAND_GROUP"
         else 
             debug "Only deleting ACLs of TOPIC type. Skipping $TOPIC_NAME"
         fi

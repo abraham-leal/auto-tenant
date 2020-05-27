@@ -19,6 +19,7 @@ echo
 ## Get the Service Account to be removed
 ######
 
+echo "Obtaining Service Account ID that matches the generated name of $FULLSERVNAME..."
 CANDIDATE_USERS_IN=$(ccloud service-account list | tail -n +3 )
 while IFS= read -r user; do
     #debug "user: $user"
@@ -31,6 +32,7 @@ while IFS= read -r user; do
         USER_ID_TO_DELETE=$SERVICE_USER_ID
     fi
 done <<< "$CANDIDATE_USERS_IN"
+echo
 
 echo "We will be deleting service account with ID: $USER_ID_TO_DELETE"
 read -p "Are you sure? [Y/N]" -r
@@ -48,7 +50,7 @@ echo
 echo
 
 ######
-## Delete ACLs associated with the associated Service Account
+## Delete ACLs associated with the Service Account
 ######
 
 ACL_LIST=$(ccloud kafka acl list --service-account $USER_ID_TO_DELETE | tail -n +3)
@@ -56,7 +58,7 @@ ACL_LIST=$(ccloud kafka acl list --service-account $USER_ID_TO_DELETE | tail -n 
 if [ ! -z "$ACL_LIST" ]; then
     while IFS= read -r line; do
         TOPIC_NAME=$(echo $line\ | cut -d "|" -f 5 | awk '{$1=$1;print}')
-        echo "Deleting ACL w/ Topic name: $TOPIC_NAME -- "
+        echo "Deleting ACL for topic: $TOPIC_NAME -- "
         IS_TOPIC_ACL=$(echo $line | cut -d "|" -f 4 | awk '{$1=$1;print}')
         if [ "$IS_TOPIC_ACL" = "TOPIC" ]; then
             ACL_SERVICE_ACCOUNT_ID=$(echo $line | cut -d " " -f 1 | cut -d ":" -f 2)
@@ -70,7 +72,7 @@ if [ ! -z "$ACL_LIST" ]; then
             else 
                 ACL_TYPE="--deny"
             fi
-            DELETE_COMMAND="ccloud kafka acl delete $ACL_TYPE --operation $ACL_OPERATION --service-account $ACL_SERVICE_ACCOUNT_ID --topic $TOPIC_NAME"
+            DELETE_COMMAND="ccloud kafka acl delete $ACL_TYPE --operation $ACL_OPERATION --service-account $USER_ID_TO_DELETE --topic $TOPIC_NAME"
             debug "$DELETE_COMMAND"
             eval "$DELETE_COMMAND"
         else 
@@ -151,7 +153,7 @@ echo
 ###############
 ## Delete API Key/Secret Pair for Service Account
 ###############
-echo "Deleting API Pairs associated with tenant"
+echo "Deleting API Pairs associated with the service account ID"
 CANDIDATE_KEYS_IN=$(ccloud api-key list --service-account $USER_ID_TO_DELETE | tail -n +3 )
 while IFS= read -r apikey; do
     debug "api-key: $apikey"

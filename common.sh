@@ -12,13 +12,17 @@ debug () {
 
 if [ "$#" -ne 4 ]; then
     echo "Illegal number of parameters."
-echo "Usage: 
-    $0 <tenant> <app-name> <environment> <topics-list-file-relative>
-    
-Example: 
-    $0 gf nuxeo dev topics.txt
-"
-    exit 1
+    echo
+    echo "Usage: 
+        $0 <tenant> <app-name> <extra-argument> <topics-list-file-relative>
+
+        Generated pre-fix will be of the form:
+        <general-prefix-from-settings><tenant>.<app-name>.<extra-argument>.
+        
+    Example: 
+        $0 gf nuxeo kafka topics.txt
+    "
+    exit
 fi
 
 SOURCE="${BASH_SOURCE[0]}"
@@ -62,7 +66,7 @@ ccloud kafka cluster use $CCLOUD_CLUSTER_ID
 generate_topic_name () {
     topic=$1
     RETVAL="$TOPICS_PREFIX$TENANT.$APP_NAME.$APP_ENVIRONMENT.$topic"
-    debug "generate_topic_name: $RETVAL"
+    #debug "generate_topic_name: $RETVAL"
     echo $RETVAL
 }
 

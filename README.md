@@ -21,6 +21,7 @@ Update (05/26/2020):
 - Output is more readable for both creation and deletion
 
 NOTE: This was tested against the Confluent Cloud CLI v1.7.0.
+
 NOTE: No unit tests have been written for features in changelog from base. Testing has happened locally.
 
 This is provided as is. No professional support is given.

@@ -16,7 +16,7 @@ Changelog from base:
 
 Update (05/26/2020):
 - The deletion script now limits deletion to a specific service account's resources
-- Deletion of topics is now confirmed before proceeding, given its a dangerous operation
+- Deletion of topics is now confirmed before proceeding, given it is a dangerous operation
 - Creation and deletion of tenant now issues prefixed CG ACLs commands
 - Output is more readable for both creation and deletion
 

@@ -17,9 +17,13 @@ done
 THIS_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 source $THIS_DIR/common.sh
 
+echo
+echo
+echo
+
 ##############################
-## SERVICE ACCOUNTS
-# Similar topic naming conventions discussed here - https://riccomini.name/how-paint-bike-shed-kafka-topic-naming-conventions
+## SERVICE ACCOUNT CREATION
+##############################
 SERVICE_ACCOUNT=$(generate_service-user_name)
 echo "Creating service-account: $SERVICE_ACCOUNT"
 SERVICE_ACCOUNT_CREATE_COMMAND="ccloud service-account create $SERVICE_ACCOUNT --description 'Automated service account for $APP_NAME $APP_ENVIRONMENT'"
@@ -28,8 +32,13 @@ eval "$SERVICE_ACCOUNT_CREATE_COMMAND"
 SERVICE_ACCOUNT_ID=$(ccloud service-account list | grep $SERVICE_ACCOUNT | awk '{print $1}' | awk '{$1=$1;print}')
 debug "SERVICE_ACCOUNT_ID: $SERVICE_ACCOUNT_ID"
 
+echo
+echo
+echo
+
 ###############################
-## API KEY
+## API KEY CREATION
+###############################
 API_KEY=$(ccloud api-key list --service-account $SERVICE_ACCOUNT_ID | tail -n +3 | awk '{print $1}' | awk '{$1=$1;print}')
 debug $API_KEY
 if [ ! -z "$DEBUG" ] ; then
@@ -54,10 +63,14 @@ API_KEY="${API_KEY}"
 API_SECRET="${API_SECRET}"
 EOF
 
-###############################
-## Topics
-# pull the topics file into an array named TENANT_TOPICS_LIST
+echo
+echo
+echo
 
+
+#############
+## Reading topics from file
+#############
 declare -A TopicPartitions
 
 while IFS== read -r key value; do
@@ -77,21 +90,12 @@ done
 
 for key in "${!TopicPartitions[@]}"
 do
+    ############
+    ## Creating Topic
+    ############
     TOPIC_NAME=$(generate_topic_name $key)
     debug "TOPIC_NAME: $TOPIC_NAME"
     sleep $DELAY_TIME
-    # if [ ! -z "$DEBUG" ] ; then
-    #     debug "Deleting $TOPIC_NAME if it exists..."
-    #     TOPIC_DELETE_COMMAND="ccloud kafka topic delete $TOPIC_NAME > /dev/null 2>&1 || true"
-    #     debug $TOPIC_DELETE_COMMAND
-    #     eval "$TOPIC_DELETE_COMMAND"
-    # fi
-# https://docs.confluent.io/current/cloud/cli/command-reference/ccloud_kafka_topic_create.html
-#     --cluster string      Kafka cluster ID.
-#     --partitions uint32   Number of topic partitions. (default 6)
-#     --config strings      A comma-separated list of topics. Configuration ('key=value') overrides for the topic being created.
-#     --dry-run             Run the command without committing changes to Kafka.
-# -h, --help                help for create
     echo "Letting cluster settle down for $DELAY_TIME seconds..."
     sleep $DELAY_TIME
     TOPIC_CREATE_COMMAND="ccloud kafka topic create $TOPIC_NAME  --partitions ${TopicPartitions[$key]}"
@@ -99,34 +103,40 @@ do
     eval "$TOPIC_CREATE_COMMAND"
     echo "Letting cluster settle down for $DELAY_TIME seconds..."
 
-#https://docs.confluent.io/current/cloud/cli/command-reference/ccloud_kafka_acl_create.html
-#     --allow                     Set the ACL to grant access.
-#     --deny                      Set the ACL to restrict access to resource.
-#     --service-account int       The service account ID.
-#     --operation string          Set ACL Operation to: (alter, alter-configs, cluster-action, create, delete, describe, describe-configs, idempotent-write, read, write).
-#     --cluster-scope             Set the cluster resource. With this option the ACL grants
-#                                 access to the provided operations on the Kafka cluster itself.
-#     --consumer-group string     Set the Consumer Group resource.
-#     --prefix                    Set to match all resource names prefixed with this value.
-#     --topic string              Set the topic resource. With this option the ACL grants the provided
-#                                 operations on the topics that start with that prefix, depending on whether
-#                                 the --prefix option was also passed.
-#     --transactional-id string   Set the TransactionalID resource.
-# -h, --help                      help for create    
-    # echo "Assigning full control ACLs for $SERVICE_ACCOUNT on $topic"
+    ##########
+    ## Assigning ACLs for Topic
+    ##########
     CREATE_ACL_READ_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --topic $TOPIC_NAME"
-    debug $ACL_READ_COMMAND
+    debug $CREATE_ACL_READ_COMMAND
     eval $CREATE_ACL_READ_COMMAND
-    CREATE_ACL_READ_CG_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --consumer-group $TOPIC_NAME"
-    debug $CREATE_ACL_READ_CG_COMMAND
-    eval $CREATE_ACL_READ_CG_COMMAND
     CREATE_ACL_WRITE_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation WRITE --topic $TOPIC_NAME"
     debug $CREATE_ACL_WRITE_COMMAND
     eval $CREATE_ACL_WRITE_COMMAND
 done
 
+echo
+echo
+echo
+
+##################
+## Assigning Global Read on Consumer Groups with the given topic prefix in settings.sh
+##################
+
+CG_PREFIX="$TOPICS_PREFIX$TENANT.$APP_NAME.$APP_ENVIRONMENT."
+echo "Creating global read permission on consumer group prefixed with: $CG_PREFIX"
+CREATE_ACL_READ_CG_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation READ --prefix --consumer-group $CG_PREFIX"
+debug $CREATE_ACL_READ_CG_COMMAND
+eval $CREATE_ACL_READ_CG_COMMAND
+
+echo
+echo
+echo
+
 echo "Final view:"
+echo
 ccloud service-account list 
+echo
 ccloud kafka topic list
-ccloud kafka acl list
+echo
+ccloud kafka acl list --service-account $SERVICE_ACCOUNT_ID
 

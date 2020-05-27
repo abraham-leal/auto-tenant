@@ -27,10 +27,10 @@ echo
 SERVICE_ACCOUNT=$(generate_service-user_name)
 echo "Creating service-account: $SERVICE_ACCOUNT"
 SERVICE_ACCOUNT_CREATE_COMMAND="ccloud service-account create $SERVICE_ACCOUNT --description 'Automated service account for $APP_NAME $APP_ENVIRONMENT'"
-debug "SERVICE_ACCOUNT_CREATE_COMMAND: $SERVICE_ACCOUNT_CREATE_COMMAND"
+#debug "SERVICE_ACCOUNT_CREATE_COMMAND: $SERVICE_ACCOUNT_CREATE_COMMAND"
 eval "$SERVICE_ACCOUNT_CREATE_COMMAND"
 SERVICE_ACCOUNT_ID=$(ccloud service-account list | grep $SERVICE_ACCOUNT | awk '{print $1}' | awk '{$1=$1;print}')
-debug "SERVICE_ACCOUNT_ID: $SERVICE_ACCOUNT_ID"
+#debug "SERVICE_ACCOUNT_ID: $SERVICE_ACCOUNT_ID"
 
 echo
 echo
@@ -39,21 +39,26 @@ echo
 ###############################
 ## API KEY CREATION
 ###############################
-API_KEY=$(ccloud api-key list --service-account $SERVICE_ACCOUNT_ID | tail -n +3 | awk '{print $1}' | awk '{$1=$1;print}')
-debug $API_KEY
-if [ ! -z "$DEBUG" ] ; then
-    debug "API_KEY, line: $API_KEY"
-    if [ ! -z "$API_KEY"  ]; then
-        API_KEY_DELETE_COMMAND="ccloud api-key delete $API_KEY"
-        debug $API_KEY_DELETE_COMMAND 
-        eval "$API_KEY_DELETE_COMMAND" || true
-    fi
-fi
+
+##### Commenting this section out. Key rotation rarely requires immediate deletion of previous keys.
+##### This check was unused
+
+# API_KEY=$(ccloud api-key list --service-account $SERVICE_ACCOUNT_ID | tail -n +3 | awk '{print $1}' | awk '{$1=$1;print}')
+# debug $API_KEY
+# if [ ! -z "$DEBUG" ] ; then
+#     debug "API_KEY, line: $API_KEY"
+#     if [ ! -z "$API_KEY"  ]; then
+#         API_KEY_DELETE_COMMAND="ccloud api-key delete $API_KEY"
+#         debug $API_KEY_DELETE_COMMAND 
+#         eval "$API_KEY_DELETE_COMMAND" || true
+#     fi
+# fi
+
 echo "Creating API key..."
 API_KEY_CREATE_COMMAND="ccloud api-key create --service-account \"$SERVICE_ACCOUNT_ID\" --description \"Automated API KEY for $APP_NAME @ $APP_ENVIRONMENT\" --resource $CCLOUD_CLUSTER_ID"
-debug "API_KEY_CREATE_COMMAND: $API_KEY_CREATE_COMMAND"
+#debug "API_KEY_CREATE_COMMAND: $API_KEY_CREATE_COMMAND"
 KEY_INFO=$(eval "$API_KEY_CREATE_COMMAND")
-debug "KEY_INFO: $KEY_INFO"
+#debug "KEY_INFO: $KEY_INFO"
 API_KEY=$(echo $KEY_INFO | cut -f 3 -d "|" | awk '{$1=$1;print}')
 debug "API_KEY: $API_KEY"
 API_SECRET=$(echo $KEY_INFO | cut -f 6 -d "|" | awk '{$1=$1;print}')
@@ -78,15 +83,17 @@ while IFS== read -r key value; do
 done <<< "$(cat $TOPICS_LIST_FILE)"
 
 echo "Topics found in topics.txt - If no partitions are declared, the default of 6 is applied"
+echo
 for key in "${!TopicPartitions[@]}"
 do
-    if [ -z ${TopicPartitions[$key]}]
+    if [ -z ${TopicPartitions[$key]} ]
     then
        TopicPartitions[$key]="6"
     fi 
-    echo "Topic  : $key"
-    echo "Partitions: ${TopicPartitions[$key]}"
+    echo "Topic  : $key, Partitions : ${TopicPartitions[$key]}"
 done
+
+echo
 
 for key in "${!TopicPartitions[@]}"
 do
@@ -95,13 +102,12 @@ do
     ############
     TOPIC_NAME=$(generate_topic_name $key)
     debug "TOPIC_NAME: $TOPIC_NAME"
-    sleep $DELAY_TIME
-    echo "Letting cluster settle down for $DELAY_TIME seconds..."
-    sleep $DELAY_TIME
     TOPIC_CREATE_COMMAND="ccloud kafka topic create $TOPIC_NAME  --partitions ${TopicPartitions[$key]}"
     debug "$TOPIC_CREATE_COMMAND"
     eval "$TOPIC_CREATE_COMMAND"
     echo "Letting cluster settle down for $DELAY_TIME seconds..."
+    sleep $DELAY_TIME
+    echo
 
     ##########
     ## Assigning ACLs for Topic
@@ -112,6 +118,7 @@ do
     CREATE_ACL_WRITE_COMMAND="ccloud kafka acl create --allow --service-account $SERVICE_ACCOUNT_ID --operation WRITE --topic $TOPIC_NAME"
     debug $CREATE_ACL_WRITE_COMMAND
     eval $CREATE_ACL_WRITE_COMMAND
+    echo
 done
 
 echo
@@ -134,9 +141,18 @@ echo
 
 echo "Final view:"
 echo
-ccloud service-account list 
+echo "Service Account Information"
+echo "
+   Id   |         Name          |          Description            
++-------+-----------------------+--------------------------------+
+"
+ccloud service-account list | grep "$SERVICE_ACCOUNT_ID"
 echo
-ccloud kafka topic list
+echo "Topics created for this pre-fix"
+echo
+ccloud kafka topic list | grep "$CG_PREFIX"
+echo
+echo "ACLs created for the service account"
 echo
 ccloud kafka acl list --service-account $SERVICE_ACCOUNT_ID
 

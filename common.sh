@@ -16,7 +16,7 @@ echo "Usage:
     $0 <tenant> <app-name> <environment> <topics-list-file-relative>
     
 Example: 
-    $0 serrala nuxio dev topics.txt
+    $0 gf nuxeo dev topics.txt
 "
     exit 1
 fi
@@ -68,9 +68,11 @@ generate_topic_name () {
 
 generate_service-user_name () {
     RETVAL="$SERVICE_ACCOUNT_PREFIX$TENANT.$APP_NAME.$APP_ENVIRONMENT"
-    debug "generate_service-user_name: $RETVAL"
+    #debug "generate_service-user_name: $RETVAL"
     echo $RETVAL
 }
+
+FULLSERVNAME="$(generate_service-user_name)"
 
 API_KEY_LOCATION="$THIS_DIR/api_keys_$(generate_service-user_name).sh"
 debug "API_KEY_LOCATION: $API_KEY_LOCATION"

@@ -5,17 +5,17 @@ set -e
 export SERVICE_ACCOUNT_PREFIX="mck-"
 export TOPICS_PREFIX="mck-"
 
-export CCLOUD_BOOTSTRAP_SERVER="cluster-endpoint.confluent.cloud:9092"
-export CCLOUD_ENVIRONMENT="t34375"
-export CCLOUD_CLUSTER_ID="lkc-1j3qj"
+export CCLOUD_BOOTSTRAP_SERVER="<CCLOUD_DNS>"
+export CCLOUD_ENVIRONMENT="ENV"
+export CCLOUD_CLUSTER_ID="CLUSTER_ID"
 
 # delay time in seconds to sleep between commands on the Kafka cluster. 
 # Note: Admin commands @ cloud API do not need to sleep. 
-export DELAY_TIME=10
+export DELAY_TIME=2
 
 # Not used, yet, but should go into the settings-private.sh
-export CCLOUD_USERNAME="YourUserName@example.com"
-export CCLOUD_PASSWORD="YourPassword"
+# export CCLOUD_USERNAME="YourUserName@example.com"
+# export CCLOUD_PASSWORD="YourPassword"
 
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink

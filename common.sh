@@ -72,6 +72,9 @@ generate_topic_name () {
 
 generate_service-user_name () {
     RETVAL="$SERVICE_ACCOUNT_PREFIX$TENANT.$APP_NAME.$APP_ENVIRONMENT"
+    if [ ! -z $CCLOUD_ENV ]; then
+        RETVAL="$SERVICE_ACCOUNT_PREFIX$TENANT.$APP_NAME.$APP_ENVIRONMENT.$CCLOUD_ENV"
+    fi
     #debug "generate_service-user_name: $RETVAL"
     echo $RETVAL
 }

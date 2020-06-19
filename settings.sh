@@ -2,8 +2,8 @@
 # author: jkuhnash@confluent.io @ github.com/jeremykuhnash
 set -e
 
-export SERVICE_ACCOUNT_PREFIX="mck-"
-export TOPICS_PREFIX="mck-"
+export SERVICE_ACCOUNT_PREFIX="x-"
+export TOPICS_PREFIX="x-"
 
 export CCLOUD_BOOTSTRAP_SERVER="<CCLOUD_DNS>"
 export CCLOUD_ENVIRONMENT="ENV"
